@@ -1,0 +1,95 @@
+* {
+    font-family: 'Montserrat', sans-serif;
+    font-weight: 400;
+}
+
+#gmap_canvas, #gmap_canvas_fav {
+    height: 70%;
+    width: 100%;
+
+}
+#content {
+    /*really import or wont show the map*/
+    padding: 0;
+    position: absolute !important;
+    top: 44px !important;
+    right: 0;
+    bottom: 0px !important;
+    left: 0 !important;
+}
+
+#logreg, #searchbar, #settings {
+    padding: 20px;
+}
+
+#usrInfo, #usr {
+    margin-bottom: 20px;
+}
+
+#pwd {
+    margin: 20px 0;
+}
+
+#text, #favList {
+    padding: 0 20px;
+}
+
+#nearby, #searchaddr {
+    margin-bottom: 18px;
+}
+
+#nearbylist {
+    margin-top: 18px;
+}
+
+#loginBtn {
+    margin-top: 15px;
+}
+
+#uploader {
+    -webkit-appearance: none;
+    width: 50%;
+    margin-bottom: 10px;
+}
+
+
+.upload-btn-wrapper {
+    position: relative;
+    overflow: hidden;
+  }
+  
+  .upload-btn-wrapper input[type=file] {
+    position: absolute;
+    left: 0;
+    top: 0;
+    opacity: 0;
+  }
+
+.hide {
+    display:none;
+}
+
+.split-button-custom {
+    float: right;
+    margin-right: 10px;
+    margin-top: -32px;
+    border-bottom-left-radius: 1em 1em;
+    border-bottom-right-radius: 1em 1em;
+    border-top-left-radius: 1em 1em;
+    border-top-right-radius: 1em 1em;   
+}
+
+.split-button-custom span.ui-btn-inner {
+    border-bottom-left-radius: 1em 1em;
+    border-bottom-right-radius: 1em 1em;
+    border-top-left-radius: 1em 1em;
+    border-top-right-radius: 1em 1em;
+    padding-right: 0px;
+}
+
+.split-button-custom span.ui-icon {
+    margin-top: 0px;
+    right: 0px;
+    top: 0px;
+    position: relative;
+}

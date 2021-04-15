@@ -1,0 +1,63 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Google Places API - Nearby Search</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="jquery.mobile-1.4.5.css">
+    <script src="jquery-1.11.3.min.js"></script>
+    <script src="jquery.mobile-1.4.5.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/4.9.0/firebase.js"></script>
+	<script>
+	  // Initialize Firebase
+	  // TODO: Replace with your project's customized code snippet
+	  var config = {
+			apiKey: "AIzaSyA0ynDPY-iRmitFwUPs59szso8Al4YWZhQ",
+			authDomain: "mad2-ca2-locata.firebaseapp.com",
+			databaseURL: "https://mad2-ca2-locata.firebaseio.com",
+			storageBucket: "mad2-ca2-locata.appspot.com",
+			messagingSenderId: "842977763574",
+		  };
+	  firebase.initializeApp(config);
+	  
+	  $(document).on('pagecreate', '#pageone', function () {
+			$('#registerBtn').on('tap', function(){
+				var username = $("#username").val();
+				var password = $("#password").val();
+				
+				firebase.auth().createUserWithEmailAndPassword(username, password)
+				.then(function(firebaseUser) {
+					console.log(firebaseUser);
+					window.location.href = "login.html";
+				})
+				.catch(function(error) {
+					alert(error.message);
+				});
+			});
+	  });
+
+	</script>
+</head>
+
+<body>
+	<div data-role="page" id="pageone">
+        <div data-role="header">
+            <h1>Register</h1>
+			
+        </div>
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+				<h4><center>Register to get access to exclusive map search!</center></h4>
+				<input type="text" id="username" placeholder="Username">
+				<input type="password" id="password" placeholder="Password">
+				<button id="registerBtn">Register</button>
+            </div>
+
+        </div>
+
+    </div>
+</body>
+
+</html>

@@ -1,0 +1,842 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Locata - Locate your place to study</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="jquery.mobile-1.4.5.css">
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:200,200i,300,300i,400,400i,500" rel="stylesheet">
+    <script src="jquery-1.11.3.min.js"></script>
+    <script src="jquery.mobile-1.4.5.js"></script>
+    <script type="text/javascript" src="https://www.google.com/jsapi"></script>
+    <script type="text/javascript" src="https://maps.googleapis.com/maps/api/js?key=AIzaSyBA5X8C3lksnfyhuv79kzRVVT3BVnmnI_I&libraries=places&sensor=false"></script>
+    <script src="https://www.gstatic.com/firebasejs/4.9.0/firebase.js"></script>
+    <script>
+        var UID = "";
+
+        var config = {
+            apiKey: "AIzaSyA0ynDPY-iRmitFwUPs59szso8Al4YWZhQ",
+            authDomain: "mad2-ca2-locata.firebaseapp.com",
+            databaseURL: "https://mad2-ca2-locata.firebaseio.com",
+            storageBucket: "mad2-ca2-locata.appspot.com",
+            messagingSenderId: "842977763574",
+        };
+        firebase.initializeApp(config);
+
+
+        var geocoder;
+        var map, map2;
+        var markers = Array();
+        var infos = Array();
+        var addrMarkers = [];
+
+
+        function initialize() {
+            // prepare Geocoder
+            geocoder = new google.maps.Geocoder();
+
+            // set initial position (Singapore)
+            var myLatlng = new google.maps.LatLng(1.3521, 103.8198);
+
+            var myOptions = { // default map options
+                zoom: 11,
+                center: myLatlng,
+                mapTypeId: google.maps.MapTypeId.ROADMAP
+            };
+            map = new google.maps.Map(document.getElementById('gmap_canvas'), myOptions); // original map
+            map2 = new google.maps.Map(document.getElementById('gmap_canvas_fav'), myOptions); // favourite map
+        }
+
+        // clear overlays function
+        function clearOverlays() {
+            if (markers) {
+                for (i in markers) {
+                    markers[i].setMap(null);
+                }
+                markers = [];
+                infos = [];
+            }
+        }
+
+        // clear infos function
+        function clearInfos() {
+            if (infos) {
+                for (i in infos) {
+                    if (infos[i].getMap()) {
+                        infos[i].close();
+                    }
+                }
+            }
+        }
+
+        function setMapOnAll(map) {
+            for (var i = 0; i < addrMarkers.length; i++) {
+                addrMarkers[i].setMap(map);
+            }
+        }
+
+        // delete markers
+        function deleteMarkers() {
+            setMapOnAll(null);
+            addrMarkers = [];
+        }
+
+        // find user's address
+        function findAddress() {
+            deleteMarkers(); // delete markers when user clicks search
+            clearOverlays();
+            console.log('finding address');
+            var address = document.getElementById("gmap_where").value; // get value that user keyed in (search for address)
+
+            // script uses our 'geocoder' in order to find location by address name
+            geocoder.geocode({ 'address': address }, function (results, status) {
+                if (status == google.maps.GeocoderStatus.OK) { // and, if everything is ok
+
+                    // we will center map
+                    var addrLocation = results[0].geometry.location;
+                    map.setCenter(addrLocation);
+                    map.setZoom(15);
+                    console.log('set new center');
+
+                    // store current coordinates into hidden variables
+                    document.getElementById('lat').value = results[0].geometry.location.lat();
+                    document.getElementById('lng').value = results[0].geometry.location.lng();
+
+
+                    // and then - add new custom marker
+                    var addrMarker = new google.maps.Marker({
+                        position: addrLocation,
+                        map: map,
+                        title: results[0].formatted_address,
+                        icon: 'images/marker64.png'
+                    });
+                    addrMarkers.push(addrMarker);
+
+                    // prepare info window
+                    var infowindow = new google.maps.InfoWindow({
+                        content: '&#x1f4cd; Entered Address!'
+                    });
+
+                    // add event handler to current marker
+                    google.maps.event.addListener(addrMarker, 'click', function () {
+                        clearInfos();
+                        infowindow.open(map, addrMarker);
+                    });
+                    infos.push(infowindow);
+
+                } else {
+                    alert('Geocode was not successful for the following reason: ' + status);
+                }
+            });
+        }
+
+        // find user's current location
+        function getCurrLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    console.log('getting current location');
+                    deleteMarkers(); // delete markers when user clicks search
+                    clearOverlays();
+
+                    var pos = new google.maps.LatLng(position.coords.latitude, position.coords.longitude);
+                    document.getElementById('lat').value = position.coords.latitude;
+                    document.getElementById('lng').value = position.coords.longitude;
+
+                    map.setCenter(pos);
+                    map.setZoom(15);
+
+                    var addrMarker = new google.maps.Marker({
+                        position: pos,
+                        map: map,
+                        icon: 'images/marker64.png'
+                    });
+                    addrMarkers.push(addrMarker);
+                    var infowindow = new google.maps.InfoWindow({
+                        content: '&#x1f4cd; You are here!'
+                    });
+                    map.setCenter(pos);
+
+                    google.maps.event.addListener(addrMarker, 'click', function () {
+                        clearInfos();
+                        infowindow.open(map, addrMarker);
+                    });
+                    infos.push(infowindow);
+                }, function () {
+                    alert("The geolocation service failed. Please try again.");
+                });
+            } else {
+                alert("You did not share your geolocation with the website.");
+            }
+        }
+
+        // find custom places function
+        function findPlaces() {
+            console.log('finding');
+            // prepare variables (filter)
+            var type = document.getElementById('gmap_type').value;
+            var radius = document.getElementById('gmap_radius').value;
+            var keyword = document.getElementById('gmap_keyword').value;
+
+            var lat = document.getElementById('lat').value;
+            var lng = document.getElementById('lng').value;
+            var cur_location = new google.maps.LatLng(lat, lng);
+
+            // prepare request to Places
+            var request = {
+                location: cur_location,
+                radius: radius,
+                types: [type]
+            };
+            if (keyword) {
+                request.keyword = [keyword];
+            }
+
+            // send request
+            service = new google.maps.places.PlacesService(map);
+            service.search(request, createMarkers);
+        }
+
+        // create markers (from 'findPlaces' function)
+        function createMarkers(results, status) {
+            console.log('found');
+            if (status == google.maps.places.PlacesServiceStatus.OK) {
+
+                // if we have found something - clear map (overlays)
+                clearOverlays();
+                deleteList();
+
+                // and create new markers by search result
+                for (var i = 0; i < results.length; i++) {
+                    createMarker(results[i]);
+                    createList(results[i]);
+                }
+            } else if (status == google.maps.places.PlacesServiceStatus.ZERO_RESULTS) {
+                alert('Sorry, nothing is found');
+            }
+        }
+
+        // create single marker function
+        function createMarker(obj) {
+            console.log('marked');
+            // prepare new Marker object
+            var mark = new google.maps.Marker({
+                position: obj.geometry.location,
+                zoom: 15,
+                map: map,
+                title: obj.name,
+                icon: "images/book.png"
+            });
+            markers.push(mark);
+
+            var objJSON = JSON.stringify(obj);
+
+            // prepare info window
+            var infowindow = new google.maps.InfoWindow({
+                content: '<img src="' + obj.icon + '" width="30px"/><br><font style="color:#000000;">' + '<strong>' + obj.name + '</strong>' +
+                    '<br />Rating: ' + obj.rating + '<br />Vicinity: ' + obj.vicinity + '<br><br>' + '<button id="favBtn_' + obj.place_id + '" data-json=\'' + objJSON + '\' onclick="fav(this)">Favourite</button>' + '</font>'
+            });
+
+            // add event handler to current marker
+            google.maps.event.addListener(mark, 'click', function () {
+                clearInfos();
+                infowindow.open(map, mark);
+            });
+            infos.push(infowindow);
+        }
+
+        // create listview
+        function createList(obj) {
+            $("#ullist").append("<li class='ui-li-has-alt'><button class='ui-btn' onclick='createMarker()'><img src='" + obj.icon + "' width='15px'/>&nbsp;&nbsp;" + obj.name + "<br /><strong>Rating: " + obj.rating + '<br />' + obj.vicinity + "</strong></button></li>");
+            console.log('list created');
+        }
+
+        // delete list
+        function deleteList() {
+            $('#ullist').html("");
+            console.log('list deleted');
+        }
+
+        // create fav marker
+        function createFavMarker(obj) {
+            // prepare new Marker object
+            var mark = new google.maps.Marker({
+                position: obj.geometry.location,
+                map: map2,
+                title: obj.name,
+                icon: "images/book.png"
+            });
+            markers.push(mark);
+
+            var objJSON = JSON.stringify(obj);
+
+            // prepare info window
+            var infowindow = new google.maps.InfoWindow({
+                content: '<img src="' + obj.icon + '" width="30px"/><br><font style="color:#000000;">' + '<strong>' + obj.name + '</strong>' +
+                    '<br />Rating: ' + obj.rating + '<br />Vicinity: ' + obj.vicinity + '<br><br>' + '</font>'
+            });
+
+            // add event handler to current marker
+            google.maps.event.addListener(mark, 'click', function () {
+                clearInfos();
+                infowindow.open(map, mark);
+            });
+            infos.push(infowindow);
+        }
+
+        function getUser() {
+            var user = firebase.auth().currentUser;
+            var s = "";
+
+            if (user != null) {
+                user.providerData.forEach(function (profile) {
+                    var userName = profile.displayName;
+                    if (userName !== null) {
+                        userName = profile.displayName;
+                    } else {
+                        userName = "";
+                    }
+                    s = s + "<center><p style='font-weight:500;font-size:20px;'>" + userName + "</p><img class='backup_picture' src=" + profile.photoURL + " width='150px'/></center><br>";
+                    $('#userInfo').html(s);
+                    console.log('info');
+                });
+            }
+            $(".backup_picture").on("error", function () {
+                $(this).attr('src', 'images/boy.png');
+            });
+        }
+
+        // make random id
+        function makeRandomId() {
+            console.log('makerandomid');
+            var text = "";
+            var possible = "ABCDEFGHIJKLMNOPQRSTUVWXYZabcdefghijklmnopqrstuvwxyz0123456789";
+
+            for (var i = 0; i < 5; i++)
+                text += possible.charAt(Math.floor(Math.random() * possible.length));
+
+            return text;
+        };
+
+
+        // initialization
+        google.maps.event.addDomListener(window, 'load', initialize);
+
+        $(document).ready(function () {
+            initialize();
+        });
+
+        $(document).on('pageshow', '#searchpage', function () {
+            initialize();
+            $('#getCurrLocat').on('tap', function () {
+                console.log('tapped');
+                getCurrLocation();
+            });
+            $('#findBtn').on('tap', function () {
+                $('#mylist').removeClass();
+            })
+        });
+
+        $(document).on('pageshow', '#favpage', function () {
+            initialize();
+            loadFav();
+        });
+
+        $(document).on('pageshow', '#userpage', function () {
+            console.log('page is shown');
+            getUser();
+
+            var uploader = document.getElementById('uploader');
+            var fileButton = document.getElementById('fileButton');
+
+            // add event when photo is selected
+            fileButton.addEventListener('change', function (e) {
+                var file = e.target.files[0];
+                var storageRef = firebase.storage().ref("images/" + makeRandomId());
+                // put the file on your firebase storage
+                var task = storageRef.put(file);
+                var user = firebase.auth().currentUser;
+                // interface update the progress bar (multitasking)
+                task.on('state_changed',
+                    function progress(snapshot) {
+                    },
+                    function error(err) {
+                        alert('uploading failed');
+                    },
+                    function complete() {
+                        console.log('upload is done!');
+
+                        // get the download url using firebase storage ref
+                        storageRef.getDownloadURL().then(function (url) {
+                            // save the downloadurl to the database
+                            var rootRef = firebase.database().ref();
+                            var ref = rootRef.child("photos");
+                            ref.push({ url: url });
+
+                            // change photo 
+                            user.updateProfile({
+                                photoURL: String(url)
+                            }).then(function () {
+                                alert('Profile photo changed!');
+                                location.reload();
+                            }).catch(function (error) {
+                                alert(error.message + "Unable to change profile photo, please try again.")
+                            });
+                        })
+                    }); // end of task.on
+
+            });
+        });
+
+
+
+
+        $(document).on('pagecreate', '#loginpage', function () {
+            // monitor auth state
+            firebase.auth().onAuthStateChanged(function (user) {
+                if (user) {
+                    window.location = "#searchpage";
+                    console.log(user.uid + " is signed in");
+                    UID = user.uid;
+                    loadFav();
+                } else {
+                    window.location = "#loginpage";
+                }
+            });
+            $('#loginBtn').on('tap', function () {
+                var username = $("#username").val();
+                var password = $("#password").val();
+
+                firebase.auth().signInWithEmailAndPassword(username, password).catch(function (error) {
+                    var errorCode = error.code;
+                    var errorMessage = error.message;
+                    console.log('error signing up' + errorMessage)
+                    alert('Wrong username or password, please try again.')
+                }) /*
+                    .then(function (firebaseUser) {
+                        console.log(firebaseUser);
+                        window.location = "#searchpage";
+                    })
+                    .catch(function (error) {
+                        alert(error.message);
+                    }); */
+            });
+            $('#registerBtn').on('tap', function () {
+                var username = $("#username").val();
+                var password = $("#password").val();
+
+                firebase.auth().createUserWithEmailAndPassword(username, password)
+                    .then(function (firebaseUser) {
+                        console.log(firebaseUser);
+                        window.location = "#searchpage";
+                    })
+                    .catch(function (error) {
+                        alert(error.message);
+                    });
+            });
+        });
+
+
+
+        function getLocation() {
+            if (navigator.geolocation) {
+                navigator.geolocation.getCurrentPosition(function (position) {
+                    console.log('get');
+                    var pos = {
+                        lat: position.coords.latitude,
+                        lng: position.coords.longitude
+                    };
+
+                    var addrMarker = new google.maps.Marker({
+                        position: pos,
+                        zoom: 16,
+                        map: map2,
+                        title: "Current Location",
+                        icon: 'images/marker64.png'
+                    });
+                    addrMarkers.push(addrMarker);
+                    map2.panTo(pos);
+                    map2.setZoom(12);
+                }, function () {
+                    alert("The geolocation service failed. Please try again.");
+                });
+            } else {
+                alert("You did not share your geolocation with the website.");
+            }
+        }
+
+        function loadFav() {
+            var count = 0;
+            $("#favUL").html("");
+            //getLocation();
+
+            console.log("Invoked");
+            firebase.database().ref("users/" + UID + "/favs/").on("value", function (snapshot) {
+                snapshot.forEach(function (childSnapshot) {
+                    count++;
+                    var key = childSnapshot.key;
+                    var childData = childSnapshot.val();
+                    var childData_JSON = JSON.stringify(childData);
+
+                    var FavName = childData.name;
+
+                    $("#favUL").append("<li class='ui-li-has-alt'><a href='#' class='ui-btn ui-btn-icon-left ui-icon-star' data-json='" + childData_JSON + "' onclick='populateFav(this)'>" + FavName + "</a> <a href='#' onclick='deleteFav(this)' data-json='" + childData_JSON + "' class='ui-btn ui-btn-icon-notext ui-icon-delete ui-btn-c'></a></li>");
+                });
+
+                $('#favUL').listview('refresh');
+                console.log("fav list shown");
+
+                if (count !== 0) {
+                    $("#addFav").hide();
+                } else {
+                    $("#addFav").show();
+                }
+            });
+        }
+
+        function fav(btn) {
+            var json = $(btn).attr('data-json');
+            var obj = JSON.parse(json);
+            writeFavData(obj.place_id, obj.name, obj.rating, obj.vicinity, obj);
+            alert("Favourite added!");
+        }
+
+        function writeFavData(placeid, name, rating, vicinity, fav_obj) {
+            if (!rating) {
+                rating = "No ratings";
+            }
+            firebase.database().ref('users/' + UID + '/favs/' + placeid).set({
+                name: name,
+                rating: rating,
+                vicinity: vicinity,
+                raw_data: fav_obj
+            });
+        }
+
+        function populateFav(item) {
+            var data = $(item).attr('data-json');
+            var data_obj = JSON.parse(data);
+            deleteMarkers(); // delete markers when user clicks search
+            clearOverlays();
+            createFavMarker(data_obj.raw_data);
+            map2.panTo(data_obj.raw_data.geometry.location);
+            map2.setZoom(15);
+        }
+
+        function deleteFav(item) {
+            var data = $(item).attr('data-json');
+            var data_obj = JSON.parse(data);
+
+            var place_id = data_obj.raw_data.place_id;
+
+            var r = confirm("Are you sure you want to delete this favourite?");
+
+            if (r == true) {
+                firebase.database().ref('users/' + UID + '/favs/' + place_id).set(null);
+                alert("Place has been deleted from favourites!");
+                loadFav();
+                deleteMarkers(); // delete markers when user clicks search
+                clearOverlays();
+            }
+        }
+
+        function logout() {
+            firebase.auth().signOut().then(function () {
+                window.location = "#loginpage";
+            })
+        }
+
+        function updateUsername() {
+            var user = firebase.auth().currentUser;
+
+            var newUsr = $("#newUsr").val();
+            //var enterPwd = $("#enterPwd").val()
+
+            if (newUsr !== "") {
+                user.updateProfile({
+                    displayName: String(newUsr)
+                }).then(function () {
+                    alert('Username updated!')
+                    location.reload();
+                }).catch(function (error) {
+                    alert(error.message + ' Username was not updated, please try again.');
+                });
+
+            }
+        }
+
+        function updatePassword() {
+            var user = firebase.auth().currentUser;
+            var currPwd = $("#currPwd").val();
+            var newPwd = $("#newPwd").val();
+            var verifyPwd = $("#verifyPwd").val();
+
+            if (newPwd == verifyPwd) {
+                if (newPwd !== "") {
+                    var credential = firebase.auth.EmailAuthProvider.credential(
+                        user.email,
+                        String(currPwd)
+                    );
+                    user.reauthenticateWithCredential(credential).then(function () {
+                        console.log('user reauth');
+                        user.updatePassword(String(newPwd)).then(function () {
+                            alert('Password updated!');
+                            location.reload();
+                        }).catch(function (error) {
+                            alert(error.message + ' Password was not updated, please try again.')
+                        });
+                    }).catch(function (error) {
+                        alert(error.message);
+                    });
+                }
+            } else {
+                alert('Password does not match');
+            }
+        }
+
+
+
+    </script>
+</head>
+
+<body>
+    <div data-role="page" id="loginpage" data-theme="c">
+
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+                <center>
+                    <br>
+                    <img src="images/VOYAGER.png" width="100px" />
+                    <h1>Welcome to Locata</h1>
+                    <h4 id='text'>
+                        Create your account or sign in to start searching for the best study spot!</center>
+                </h4>
+                <div id='logreg'>
+                    <input type="text" id="username" placeholder="Email">
+                    <input type="password" id="password" placeholder="Password">
+                    <button id="loginBtn">Login</button>
+                    <button id="registerBtn">Sign Up</button>
+                </div>
+
+            </div>
+
+        </div>
+    </div>
+
+    <div data-role="page" id="searchpage">
+        <div data-role="header" data-position="fixed" style="background: #39434b">
+            <center>
+                <img src="images/locatav2.png" style="height:38px;padding-top:4px;">
+            </center>
+        </div>
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+                <div id="gmap_canvas"></div>
+                <div id="searchbar">
+                    <h3 style="margin:0">Search:</h3>
+                    <div id='searchaddr'>
+                        <div class="ui-grid-a">
+                            <center>
+                                <div class="ui-block-a" style="width:86%">
+                                    <input type="text" name="gmap_where" id="gmap_where" placeholder="Enter an address" />
+                                </div>
+                                <div class="ui-block-b" style="width:14%">
+                                    <button class="ui-btn ui-btn-inline ui-corner-all" onclick="findAddress(); return false;" style="font-size:14px;">&#x1F50D;</button>
+                                </div>
+                        </div>
+                        <button class="ui-btn ui-corner-all" id="getCurrLocat">Or get Current Location</button>
+                        </center>
+                    </div>
+                    <hr>
+                    <div id="nearbylist">
+                        <div id="nearby">
+                            <input type="text" data-inline="true" name="gmap_keyword" id="gmap_keyword" placeholder="Keyword (optional):" />
+                            <label for="gmap_type">Select type of place:</label>
+                            <select name="gmap_type" id="gmap_type">
+                                <option value="cafe">Cafe</option>
+                                <option value="library">Library</option>
+                            </select>
+                            <label for="gmap_radius">Radius of nearby places:</label>
+                            <select name="gmap_radius" id="gmap_radius">
+                                <option value="500">500m</option>
+                                <option value="1000">1km</option>
+                                <option value="1500">1.5km</option>
+                                <option value="3000">3km</option>
+                                <option value="5000">5km</option>
+                            </select>
+                            <input type="hidden" id="lat" name="lat" value="1.290270" />
+                            <input type="hidden" id="lng" name="lng" value="103.851959" />
+                            <center>
+
+                                <button class="ui-btn ui-corner-all" onclick="findPlaces(); return false;" id="findBtn">Find your study spot!</button>
+                            </center>
+                        </div>
+                        <div class="info hide" id="mylist">
+                            <hr>
+                            <h3>Select your study spot:</h3>
+                            <ul data-role="listview" data-inset='true' id='ullist' style='text-align: center;'>
+
+                            </ul>
+                        </div>
+                        <br>
+                        <br>&nbsp;
+                    </div>
+
+                </div>
+                <div data-role="footer" data-position="fixed" style='position:fixed;bottom:0;'>
+                    <div data-role="navbar">
+                        <ul>
+                            <li>
+                                <a href="#">
+                                    <img src="images/search.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#favpage">
+                                    <img src="images/like.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#userpage">
+                                    <img src="images/user.png" width="24px" />
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+
+        </div>
+
+    </div>
+
+    <div data-role="page" id="favpage">
+        <div data-role="header" data-position="fixed" style="background: #39434b">
+            <center>
+                <img src="images/locatav2.png" style="height:38px;padding-top:4px;">
+            </center>
+        </div>
+
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+                <div id="gmap_canvas_fav"></div>
+                <div id="favourites">
+                    <center>
+                        <h3>Favourites</h3>
+                    </center>
+                    <div id="favList">
+                        <div id="addFav">
+                            <h4>
+                                <center>There are currently no favourites, add one!</center>
+                            </h4>
+                        </div>
+                        <ul data-role="listview" data-inset="true" id="favUL">
+
+                        </ul>
+                    </div>
+                </div>
+                <br>&nbsp;
+
+                <div data-role="footer" data-position="fixed" style='position:fixed;bottom:0;'>
+                    <div data-role="navbar">
+                        <ul>
+                            <li>
+                                <a href="#searchpage">
+                                    <img src="images/search.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#favpage">
+                                    <img src="images/like.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#userpage">
+                                    <img src="images/user.png" width="24px" />
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+    <div data-role="page" id="userpage">
+        <div data-role="header" data-position="fixed" style="background: #39434b">
+            <center>
+                <img src="images/locatav2.png" style="height:38px;padding-top:4px;">
+            </center>
+
+        </div>
+
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+                <div id='settings'>
+                    <h2>User Settings</h2>
+                    <div id='usrInfo'>
+                        <div id='userInfo'>
+
+                        </div>
+                        <div class="upload-btn-wrapper">
+                            <button class="ui-btn ui-corner-all" id="btn">Change profile picture</button>
+                            <input type="file" id='fileButton' />
+                        </div>
+                    </div>
+
+                    <div id='usr'>
+                        <label for="newUsr">Change Username:</label>
+                        <input type="text" name="newUsr" id="newUsr" placeholder="New Username">
+                        <button class="ui-btn ui-corner-all" onclick="updateUsername();">Update Username</button>
+                    </div>
+                    <hr>
+                    <div id='pwd'>
+                        <label for="currPwd">Change Password:</label>
+                        <input type="password" name="currPwd" id="currPwd" autocomplete="off" placeholder="Current Password">
+                        <input type="password" name="newPwd" id="newPwd" autocomplete="off" placeholder="New Password">
+                        <input type="password" name="verifyPwd" id="verifyPwd" autocomplete="off" placeholder="Verify Password">
+                        <button class="ui-btn ui-corner-all" onclick="updatePassword();">Update Password</button>
+                    </div>
+                    <hr>
+                    <center>
+                        <button class="ui-btn ui-btn-b ui-btn-inline ui-corner-all ui-btn-icon-left ui-icon-power" onclick="logout()">Logout</button>
+                    </center>
+                </div>
+                <br>&nbsp;
+
+
+
+                <div data-role="footer" data-position="fixed" style='position:fixed;bottom:0;'>
+                    <div data-role="navbar">
+                        <ul>
+                            <li>
+                                <a href="#searchpage">
+                                    <img src="images/search.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#favpage">
+                                    <img src="images/like.png" width="24px" />
+                                </a>
+                            </li>
+                            <li>
+                                <a href="#userpage">
+                                    <img src="images/user.png" width="24px" />
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+
+    </div>
+
+
+</body>
+
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="en">
+
+<head>
+    <meta charset="utf-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Google Places API - Nearby Search</title>
+    <link rel="stylesheet" href="css/style.css">
+    <link rel="stylesheet" href="jquery.mobile-1.4.5.css">
+    <script src="jquery-1.11.3.min.js"></script>
+    <script src="jquery.mobile-1.4.5.js"></script>
+	<script src="https://www.gstatic.com/firebasejs/4.9.0/firebase.js"></script>
+	<script>
+	  // Initialize Firebase
+	  // TODO: Replace with your project's customized code snippet
+	  var config = {
+			apiKey: "AIzaSyA0ynDPY-iRmitFwUPs59szso8Al4YWZhQ",
+			authDomain: "mad2-ca2-locata.firebaseapp.com",
+			databaseURL: "https://mad2-ca2-locata.firebaseio.com",
+			storageBucket: "mad2-ca2-locata.appspot.com",
+			messagingSenderId: "842977763574",
+		  };
+	  firebase.initializeApp(config);
+	  
+	  $(document).on('pagecreate', '#pageone', function () {
+			$('#loginBtn').on('tap', function(){
+				var username = $("#username").val();
+				var password = $("#password").val();
+				
+				firebase.auth().signInWithEmailAndPassword(username, password)
+				.then(function(firebaseUser) {
+					console.log(firebaseUser);
+					window.location.href = "index.html";
+				})
+				.catch(function(error) {
+					alert(error.message);
+				});
+			});
+	  });
+
+	</script>
+</head>
+
+<body>
+	<div data-role="page" id="pageone">
+        <div data-role="header">
+            <h1>Login</h1>
+			
+        </div>
+        <div data-role="main" class="ui-content">
+            <div id='content'>
+				<h4><center>Please sign in to your user account!</center></h4>
+				<input type="text" id="username" placeholder="Username">
+				<input type="password" id="password" placeholder="Password">
+				<button id="loginBtn">Login</button>
+				<br>
+				<small><center><i><a href="register.html">I do have an account</a></i></center></small>
+            </div>
+
+        </div>
+
+    </div>
+</body>
+
+</html>
