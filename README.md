@@ -1,6 +1,6 @@
-# LOCATA 
 
 ![image](https://user-images.githubusercontent.com/38778609/114804053-32bf7300-9dd3-11eb-844a-7893b1d397d1.png)
+# LOCATA 
 
 ### _Singapore Polytechnic - ST2226 Mobile Application Development II Project AY17/18_
 
